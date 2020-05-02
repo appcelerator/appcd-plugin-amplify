@@ -1,0 +1,38 @@
+{
+  "name": "@appcd/plugin-amplify",
+  "version": "2.0.0",
+  "description": "AMPLIFY platform service for the Appc Daemon.",
+  "main": "./dist/index",
+  "author": "Appcelerator, Inc. <npmjs@appcelerator.com>",
+  "maintainers": [
+    "Chris Barber <cbarber@appcelerator.com>"
+  ],
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "gulp build",
+    "coverage": "gulp coverage",
+    "docs": "gulp docs",
+    "prepack": "gulp build",
+    "test": "gulp test"
+  },
+  "dependencies": {
+    "@axway/amplify-sdk": "^1.0.0",
+    "gawk": "^4.7.1",
+    "source-map-support": "^0.5.19"
+  },
+  "devDependencies": {
+    "appcd-gulp": "^3.0.0"
+  },
+  "homepage": "https://github.com/appcelerator/appc-daemon",
+  "bugs": "https://github.com/appcelerator/appcd-plugin-amplify/issues",
+  "repository": "https://github.com/appcelerator/appcd-plugin-amplify",
+  "appcd": {
+    "appcdVersion": "3.x",
+    "config": "./conf/config.js",
+    "name": "amplify",
+    "type": "external"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
