@@ -9,92 +9,174 @@ import {
 	loadConfig,
 	locations
 } from '@axway/amplify-cli-utils';
+
+import gawk from 'gawk';
 import prettyMs from 'pretty-ms';
+
+import { debounce } from 'appcd-util';
+import { ServiceDispatcher } from 'appcd-dispatcher';
 import { snooplogg } from 'appcd-logger';
 
 const { highlight } = snooplogg.styles;
 const { configFile } = locations;
-const authTimers = {};
+
+/**
+ * A map of active access token refresh timers.
+ * @type {Object}
+ */
+const refreshTimers = {};
+
+/**
+ * The AMPLIFY CLI config object, not the appcd config. It's a `config-kit` instance.
+ * @type {Config}
+ */
 let amplifyConfig;
+
+/**
+ * The AMPLIFY SDK instance.
+ * @type {AmplifySDK}
+ */
 let sdk;
 
-// TODO:
-//	auto start plugin!
-//	jsdoc
-
-function clearTimers() {
-	for (const [ id, timer ] of Object.entries(authTimers)) {
-		clearTimeout(timer);
-		delete authTimers[id];
-	}
-}
-
-async function getAccount(req) {
-	const accountName = req.params?.accountName || req.data?.accountName;
-	if (!accountName) {
-		throw new Error('Missing account name');
-	}
-	const accounts = await sdk.auth.list();
-	const account = accounts.find(a => a.name === accountName);
-	if (account) {
-		return account;
-	}
-	throw new Error(`Account "${accountName}" not found`);
-}
-
-async function init() {
-	clearTimers();
-	amplifyConfig = loadConfig({ configFile });
-	sdk = new AmplifySDK(buildParams({}, amplifyConfig));
-	(await sdk.auth.list()).forEach(refreshToken);
-}
-
-function refreshToken(account) {
-	if (!account) {
-		return;
+/**
+ * Tracks authenticated accounts information.
+ */
+class AuthAccountService extends ServiceDispatcher {
+	constructor() {
+		super('');
+		this.data = gawk([]);
 	}
 
-	if (authTimers[account.name]) {
-		clearTimeout(authTimers[account.name]);
+	/**
+	 * Handle an unsubscribe and stop watching the data.
+	 *
+	 * @param {Object} params - Various parameters.
+	 * @param {Function} params.publish - The function used to publish data to a dispatcher client.
+	 * This is the same publish function as the one passed to `onSubscribe()`.
+	 * @access private
+	 */
+	destroySubscription({ publish }) {
+		gawk.unwatch(this.data, publish);
 	}
 
-	const refreshIn = account.auth.expires.refresh - 60000 - Date.now();
-	if (refreshIn < 1000) {
-		// refresh token is going to exprire before we can do anything about it, so just return and
-		// let the account get purged
-		return;
+	/**
+	 * Retrieves the list of authenticated accounts.
+	 *
+	 * @returns {Promise}
+	 * @access private
+	 */
+	async getAccounts() {
+		const accounts = await sdk.auth.list();
+		const defaultAccount = amplifyConfig.get('auth.defaultAccount');
+		return accounts.map(account => {
+			account.active = account.name === defaultAccount;
+			return account;
+		});
 	}
 
-	console.log(`Refresh access token in ${highlight(prettyMs(refreshIn))}`);
+	/**
+	 * Initializes the service data with the list of authenticated accounts, then watches the
+	 * token store file for changes.
+	 *
+	 * @returns {Promise}
+	 * @access public
+	 */
+	async init() {
+		this.data = gawk(await this.getAccounts());
 
-	// set a timer to refresh the access token 1 minutes before the refresh token is set to expire
-	authTimers[account.name] = setTimeout(async () => {
-		try {
-			delete authTimers[account.name];
-			refreshToken(await sdk.auth.find(account.name));
-		} catch (e) {
-			console.error(`Failed to refresh token: ${e.message}`);
+		const auth = sdk.client;
+		const tokenStoreFile = auth.tokenStore?.tokenStoreFile;
+
+		if (tokenStoreFile) {
+			console.log(`Watching token store file: ${highlight(tokenStoreFile)}`);
+
+			// we have to debounce watch events because the token store changes twice when logging
+			// in: 1st time with initial account info with token, then a 2nd time with the session
+			// info (org, etc) from platform
+			//
+			// the default debounce timer is only 200ms and that's not enough time for the AMPLIFY
+			// SDK to fetch account details
+			const updateAccounts = debounce(async () => {
+				gawk.set(this.data, await this.getAccounts());
+			}, 1000);
+
+			appcd.fs.watch({
+				handler: updateAccounts,
+				paths: [ tokenStoreFile ],
+				type: 'amplify-auth-accounts'
+			});
+		} else if (auth.tokenStore) {
+			// probably a "memory" based store
+			console.warn('Token store is not file-based, unable to track changes');
 		}
-	}, refreshIn);
+	}
+
+	/**
+	 * Initializes the subscription for the filter.
+	 *
+	 * @param {Object} params - Various parameters.
+	 * @param {DispatcherContext} params.ctx - The dispatcher context object.
+	 * @param {Function} params.publish - A function used to publish data to a dispatcher client.
+	 * @access private
+	 */
+	initSubscription({ publish }) {
+		gawk.watch(this.data, publish);
+	}
+
+	/**
+	 * Responds to "call" service requests.
+	 *
+	 * @param {DispatcherContext} ctx - A dispatcher request context.
+	 * @access private
+	 */
+	onCall(ctx) {
+		ctx.response = this.data;
+	}
+
+	/**
+	 * Handles the new subscriber.
+	 *
+	 * @param {Object} params - Various parameters.
+	 * @param {DispatcherContext} params.ctx - The dispatcher context object.
+	 * @param {Function} params.publish - A function used to publish data to a dispatcher client.
+	 * @access private
+	 */
+	onSubscribe({ publish }) {
+		publish(this.data);
+	}
 }
 
 /**
- *
+ * Wires up the routes and initialize the AMPLIFY CLI config, AMPLIFY SDK, and refresh timers.
  *
  * @returns {Promise}
  */
 export async function activate() {
-	appcd.register('/auth', async ctx => {
-		const accounts = await sdk.auth.list();
-		const defaultAccount = amplifyConfig.get('auth.defaultAccount');
-		ctx.response = accounts.map(account => {
-			account.active = account.name === defaultAccount;
-			return account;
-		});
+	// watch the AMPLIFY CLI config file for changes
+	appcd.fs.watch({
+		debounce: true,
+		handler: init,
+		paths: [ configFile ],
+		type: 'amplify-config'
 	});
 
+	await init();
+
+	const authService = new AuthAccountService();
+	await authService.init();
+	appcd.register('/auth', authService);
+
 	appcd.register('/auth/login', async ctx => {
-		const account = await sdk.auth.login();
+		const { data } = ctx.request;
+		const opts = {};
+
+		if (data) {
+			for (const prop of [ 'baseUrl', 'clientId', 'clientSecret', 'env', 'password', 'realm', 'secretFile', 'serviceAccount', 'username' ]) {
+				opts[prop] = data[prop];
+			}
+		}
+
+		const account = await sdk.auth.login(opts);
 		refreshToken(account);
 		ctx.response = account;
 	});
@@ -201,7 +283,7 @@ export async function activate() {
 		ctx.response = await sdk.org.getEnvironments(account);
 	});
 
-	appcd.register('/ti/aca-upload-url/:guid', async ctx => {
+	appcd.register('/ti/aca-upload-url', async ctx => {
 		const { data } = ctx.request;
 		const account = await getAccount(ctx.request);
 
@@ -223,16 +305,15 @@ export async function activate() {
 		ctx.response = await sdk.ti.setApp(account, data.tiapp);
 	});
 
-	appcd.register('/ti/app/:guid?', async ctx => {
-		const { data, params } = ctx.request;
+	appcd.register('/ti/app', async ctx => {
+		const { data } = ctx.request;
 		const account = await getAccount(ctx.request);
-		const appGuid = params.guid || data.appGuid;
 
-		if (!appGuid) {
+		if (!data.appGuid) {
 			throw new Error('Missing app guid');
 		}
 
-		ctx.response = await sdk.ti.getApp(account, appGuid);
+		ctx.response = await sdk.ti.getApp(account, data.appGuid);
 	});
 
 	appcd.register('/ti/app-verify-url', async ctx => {
@@ -320,22 +401,113 @@ export async function activate() {
 		});
 	});
 
-	// watch the AMPLIFY CLI config file for changes
-	appcd.fs.watch({
-		debounce: true,
-		handler: init,
-		paths: [ configFile ],
-		type: 'amplify-config'
-	});
-
-	await init();
+	refreshStatus();
 }
 
 /**
- * ?
+ * Clear any refresh timers.
  *
  * @returns {Promise}
  */
 export async function deactivate() {
-	clearTimers();
+	clearRefreshTimers();
+}
+
+/**
+ * Clears all pending access token refresh timers.
+ */
+function clearRefreshTimers() {
+	for (const [ id, timer ] of Object.entries(refreshTimers)) {
+		clearTimeout(timer);
+		delete refreshTimers[id];
+	}
+}
+
+/**
+ * Get an account by name from the request by checking authenticated accounts in the token store.
+ *
+ * By checking the account against the token store, it's much quicker than doing a `find()` which
+ * will refresh the user info, org info, and refresh the access token. `list()` will only return
+ * non-expired accounts and it's probably ok if the user/org info is stale since it'll be refreshed
+ * when the token is set to expire.
+ *
+ * @param {Object} req - The incoming request from the dispatcher context.
+ * @returns {Promise} Resolves the account object.
+ */
+async function getAccount(req) {
+	const accountName = req.params?.accountName || req.data?.accountName;
+	if (!accountName) {
+		throw new Error('Missing account name');
+	}
+	const accounts = await sdk.auth.list();
+	const account = accounts.find(a => a.name === accountName);
+	if (account) {
+		return account;
+	}
+	throw new Error(`Account "${accountName}" not found`);
+}
+
+/**
+ * Loads the AMPLIFY CLI and AMPLIFY SDK during plugin activation and when the AMPLIFY CLI config
+ * changes.
+ *
+ * @returns {Promise}
+ */
+async function init() {
+	clearRefreshTimers();
+	amplifyConfig = loadConfig({ configFile });
+	sdk = new AmplifySDK(buildParams({}, amplifyConfig));
+	(await sdk.auth.list()).forEach(refreshToken);
+}
+
+/**
+ * Displays refresh status for every authenticated account.
+ */
+function refreshStatus() {
+	setTimeout(async () => {
+		const accounts = await sdk.auth.list();
+		const now = Date.now();
+
+		for (const account of accounts) {
+			const refreshIn = account.auth.expires.refresh - now - 60000;
+			if (refreshIn > 1000) {
+				console.log(`Refreshing ${highlight(account.name)} access token in ${highlight(prettyMs(refreshIn))}`);
+			}
+		}
+
+		refreshStatus();
+	}, 60000);
+}
+
+/**
+ * Schedules an account to have its access token refreshed.
+ *
+ * @param {Object} account - The account to refresh.
+ */
+function refreshToken(account) {
+	if (!account) {
+		return;
+	}
+
+	if (refreshTimers[account.name]) {
+		clearTimeout(refreshTimers[account.name]);
+	}
+
+	const refreshIn = account.auth.expires.refresh - Date.now() - 60000;
+	if (refreshIn < 1000) {
+		// refresh token is going to exprire before we can do anything about it, so just return and
+		// let the account get purged
+		return;
+	}
+
+	console.log(`Refreshing ${highlight(account.name)} access token in ${highlight(prettyMs(refreshIn))}`);
+
+	// set a timer to refresh the access token 1 minutes before the refresh token is set to expire
+	refreshTimers[account.name] = setTimeout(async () => {
+		try {
+			refreshToken(await sdk.auth.find(account.name));
+		} catch (e) {
+			console.log(`Failed to find account "${account.name}": ${e.message}`);
+		}
+	}, refreshIn);
 }

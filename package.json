@@ -29,7 +29,9 @@
   "repository": "https://github.com/appcelerator/appcd-plugin-amplify",
   "appcd": {
     "appcdVersion": "3.x",
+    "autoStart": true,
     "config": "./conf/config.js",
+    "inactivityTimeout": 0,
     "name": "amplify",
     "type": "external"
   },
