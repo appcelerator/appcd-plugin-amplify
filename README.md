@@ -4,6 +4,8 @@ AMPLIFY platform service for the Appc Daemon.
 
 Report issues to [GitHub issues][2]. Official issue tracker in [JIRA][3].
 
+## Auth
+
 ## Legal
 
 This project is open source under the [Apache Public License v2][1] and is developed by

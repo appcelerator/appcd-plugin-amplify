@@ -16,8 +16,9 @@
     "test": "gulp test"
   },
   "dependencies": {
-    "@axway/amplify-sdk": "^1.0.0",
+    "@axway/amplify-cli-utils": "^3.0.1",
     "gawk": "^4.7.1",
+    "pretty-ms": "^7.0.0",
     "source-map-support": "^0.5.19"
   },
   "devDependencies": {
