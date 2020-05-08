@@ -13,6 +13,7 @@ import {
 import gawk from 'gawk';
 import prettyMs from 'pretty-ms';
 
+import { debounce } from 'appcd-util';
 import { ServiceDispatcher } from 'appcd-dispatcher';
 import { snooplogg } from 'appcd-logger';
 
@@ -96,25 +97,26 @@ class AuthAccountService extends ServiceDispatcher {
 		if (tokenStoreFile) {
 			console.log(`Watching token store file: ${highlight(tokenStoreFile)}`);
 
+			const handler = debounce(async () => {
+				const accounts = await sdk.auth.list();
+				const watching = new Set(Object.keys(refreshTimers));
+
+				gawk.set(this.data, scrubAccounts(accounts));
+
+				for (const account of accounts) {
+					watching.delete(account.name);
+					refreshToken(account);
+				}
+
+				for (const name of watching) {
+					console.warn(`Removing orphan refresh timer for account "${name}"`);
+					clearTimeout(refreshTimers[name].handle);
+					delete refreshTimers[name];
+				}
+			}, 2345);
+
 			appcd.fs.watch({
-				debounce: true,
-				handler: async () => {
-					const accounts = await sdk.auth.list();
-					const watching = new Set(Object.keys(refreshTimers));
-
-					gawk.set(this.data, scrubAccounts(accounts));
-
-					for (const account of accounts) {
-						watching.delete(account.name);
-						refreshToken(account);
-					}
-
-					for (const name of watching) {
-						console.warn(`Removing orphan refresh timer for account "${name}"`);
-						clearTimeout(refreshTimers[name].handle);
-						delete refreshTimers[name];
-					}
-				},
+				handler,
 				paths: [ tokenStoreFile ],
 				type: 'amplify-auth-accounts'
 			});
@@ -422,7 +424,9 @@ export async function activate() {
 
 			for (const account of accounts) {
 				const refreshIn = account.auth.expires.refresh - now - 60000;
-				console.log(`Refreshing ${highlight(account.name)} access token in ${highlight(prettyMs(refreshIn))}`);
+				if (refreshIn >= 1000) {
+					console.log(`Refreshing ${highlight(account.name)} access token in ${highlight(prettyMs(refreshIn))}`);
+				}
 			}
 		}
 	}, 60000);
@@ -505,6 +509,7 @@ function refreshToken(account) {
 	if (refreshIn < 1000) {
 		// refresh token is going to exprire before we can do anything about it, so just return and
 		// let the account get purged
+		console.log(`Not enough time to refresh token before expiration ${prettyMs(refreshIn)} (${account.auth.expires.refresh}))`);
 		return;
 	}
 

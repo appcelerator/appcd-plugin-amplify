@@ -1,6 +1,6 @@
 {
   "name": "@appcd/plugin-amplify",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AMPLIFY platform service for the Appc Daemon.",
   "main": "./dist/index",
   "author": "Appcelerator, Inc. <npmjs@appcelerator.com>",
