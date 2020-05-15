@@ -81,12 +81,10 @@ class AuthAccountService extends ServiceDispatcher {
 		const accounts = await sdk.auth.list();
 		const scrubAccounts = accounts => {
 			const defaultAccount = amplifyConfig.get('auth.defaultAccount');
-			return accounts
-				.filter(a => a.orgs?.length)
-				.map(account => {
-					account.active = account.name === defaultAccount;
-					return account;
-				});
+			return accounts.map(account => {
+				account.active = account.name === defaultAccount;
+				return account;
+			});
 		};
 
 		this.data = gawk(scrubAccounts(accounts));
@@ -183,7 +181,9 @@ export async function activate() {
 
 	appcd.register('/auth/login', async ctx => {
 		const { data } = ctx.request;
-		const opts = {};
+		const opts = {
+			force: data?.force
+		};
 
 		if (data) {
 			for (const prop of [ 'baseUrl', 'clientId', 'clientSecret', 'env', 'password', 'realm', 'secretFile', 'serviceAccount', 'username' ]) {
@@ -198,7 +198,7 @@ export async function activate() {
 
 	appcd.register('/auth/logout/:accountName?', async ctx => {
 		const { data, params } = ctx.request;
-		const accountName = params.accountName || data.accountName;
+		const accountName = params?.accountName || data?.accountName;
 		const opts = {};
 		if (accountName) {
 			opts.accounts = [ accountName ];
@@ -215,7 +215,7 @@ export async function activate() {
 	appcd.register('/auth/switch/:accountName?/:org?', async ctx => {
 		const { data, params } = ctx.request;
 		const accounts = await sdk.auth.list();
-		const accountName = params.accountName || data.accountName;
+		const accountName = params?.accountName || data?.accountName;
 		const orgId = params.org || data.org;
 
 		if (!accounts.length) {
