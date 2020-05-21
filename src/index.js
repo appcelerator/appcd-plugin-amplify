@@ -45,6 +45,12 @@ let sdk;
 let statusTimer;
 
 /**
+ * The number of milliseconds before a refresh token expires to trigger an access token refresh.
+ * @type {Number}
+ */
+const tokenRefreshThreshold = 5 * 60 * 1000;
+
+/**
  * Tracks authenticated accounts information.
  */
 class AuthAccountService extends ServiceDispatcher {
@@ -193,6 +199,12 @@ export async function activate() {
 
 		const account = await sdk.auth.login(opts);
 		refreshToken(account);
+
+		if (!amplifyConfig.get(`auth.defaultOrg.${account.hash}`)) {
+			amplifyConfig.set(`auth.defaultOrg.${account.hash}`, account.org.guid);
+			amplifyConfig.save();
+		}
+
 		ctx.response = account;
 	});
 
@@ -238,7 +250,7 @@ export async function activate() {
 		}
 
 		amplifyConfig.set('auth.defaultAccount', account.name);
-		amplifyConfig.set(`auth.defaultOrg.${account.hash}`, org.id);
+		amplifyConfig.set(`auth.defaultOrg.${account.hash}`, org.guid);
 		amplifyConfig.save();
 
 		ctx.response = account;
@@ -423,7 +435,7 @@ export async function activate() {
 			const now = Date.now();
 
 			for (const account of accounts) {
-				const refreshIn = account.auth.expires.refresh - now - 60000;
+				const refreshIn = account.auth.expires.refresh - now - tokenRefreshThreshold;
 				if (refreshIn >= 1000) {
 					console.log(`Refreshing ${highlight(account.name)} access token in ${highlight(prettyMs(refreshIn))}`);
 				}
@@ -505,7 +517,7 @@ function refreshToken(account) {
 		clearTimeout(refreshTimers[name].handle);
 	}
 
-	const refreshIn = account.auth.expires.refresh - Date.now() - 60000;
+	const refreshIn = account.auth.expires.refresh - Date.now() - tokenRefreshThreshold;
 	if (refreshIn < 1000) {
 		// refresh token is going to exprire before we can do anything about it, so just return and
 		// let the account get purged
@@ -527,8 +539,8 @@ function refreshToken(account) {
 				} else {
 					console.warn(`Refresh timer for account "${name}" was fired too late and token could not be refreshed`);
 				}
-			} catch (e) {
-				console.log(`Failed to find account "${name}": ${e.message}`);
+			} catch (err) {
+				console.error(err.toString());
 			}
 		}, refreshIn)
 	};
