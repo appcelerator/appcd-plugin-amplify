@@ -1,6 +1,6 @@
 {
   "name": "@appcd/plugin-amplify",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AMPLIFY platform service for the Appc Daemon.",
   "main": "./dist/index",
   "author": "Appcelerator, Inc. <npmjs@appcelerator.com>",
@@ -16,7 +16,7 @@
     "test": "gulp test"
   },
   "dependencies": {
-    "@axway/amplify-cli-utils": "^3.0.1",
+    "@axway/amplify-cli-utils": "^3.0.2",
     "gawk": "^4.7.1",
     "pretty-ms": "^7.0.0",
     "source-map-support": "^0.5.19"
@@ -28,7 +28,7 @@
   "bugs": "https://github.com/appcelerator/appcd-plugin-amplify/issues",
   "repository": "https://github.com/appcelerator/appcd-plugin-amplify",
   "appcd": {
-    "appcdVersion": "3.x",
+    "apiVersion": "^1.1.0 || 2.x",
     "autoStart": true,
     "config": "./conf/config.js",
     "inactivityTimeout": 0,
