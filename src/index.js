@@ -20,6 +20,9 @@ import { snooplogg } from 'appcd-logger';
 const { highlight } = snooplogg.styles;
 const { configFile } = locations;
 
+const statusLogger = appcd.logger('status');
+const refreshLogger = appcd.logger('refresh');
+
 /**
  * The AMPLIFY CLI config object, not the appcd config. It's a `config-kit` instance.
  * @type {Config}
@@ -43,12 +46,6 @@ let sdk;
  * @type {Timer}
  */
 let statusTimer;
-
-/**
- * The number of milliseconds before a refresh token expires to trigger an access token refresh.
- * @type {Number}
- */
-const tokenRefreshThreshold = 5 * 60 * 1000;
 
 /**
  * Tracks authenticated accounts information.
@@ -435,9 +432,10 @@ export async function activate() {
 			const now = Date.now();
 
 			for (const account of accounts) {
-				const refreshIn = account.auth.expires.refresh - now - tokenRefreshThreshold;
-				if (refreshIn >= 1000) {
-					console.log(`Refreshing ${highlight(account.name)} access token in ${highlight(prettyMs(refreshIn))}`);
+				const accessExpiresIn = account.auth.expires.access - now;
+				const refreshExpiresIn = account.auth.expires.refresh - now;
+				if (refreshTimers[account.name] && refreshExpiresIn >= 1000) {
+					statusLogger.log(`${highlight(account.name)} access token ${accessExpiresIn < 0 ? 'is expired' : `expires in ${highlight(prettyMs(accessExpiresIn))}`}, refresh token expires in ${highlight(prettyMs(refreshExpiresIn))}`);
 				}
 			}
 		}
@@ -515,17 +513,21 @@ function refreshToken(account) {
 
 	if (refreshTimers[name]) {
 		clearTimeout(refreshTimers[name].handle);
+		delete refreshTimers[name];
 	}
 
-	const refreshIn = account.auth.expires.refresh - Date.now() - tokenRefreshThreshold;
-	if (refreshIn < 1000) {
+	const accessExpiresIn = account.auth.expires.access - Date.now();
+	const refreshExpiresIn = account.auth.expires.refresh - Date.now();
+	const refreshIn = Math.max(accessExpiresIn, 1);
+
+	if (refreshExpiresIn < 1000) {
 		// refresh token is going to exprire before we can do anything about it, so just return and
 		// let the account get purged
-		console.log(`Not enough time to refresh token before expiration ${prettyMs(refreshIn)} (${account.auth.expires.refresh}))`);
+		refreshLogger.log(`${highlight(name)} not enough time to refresh access token; refresh token expires ${prettyMs(refreshExpiresIn)}`);
 		return;
 	}
 
-	console.log(`Refreshing ${highlight(name)} access token in ${highlight(prettyMs(refreshIn))}`);
+	refreshLogger.log(`Refreshing access token in ${highlight(prettyMs(refreshIn))}`);
 
 	// set a timer to refresh the access token 1 minutes before the refresh token is set to expire
 	refreshTimers[name] = {
@@ -537,10 +539,10 @@ function refreshToken(account) {
 				if (updatedAccount) {
 					refreshToken(updatedAccount);
 				} else {
-					console.warn(`Refresh timer for account "${name}" was fired too late and token could not be refreshed`);
+					refreshLogger.warn(`Refresh timer for account "${name}" was fired too late and token could not be refreshed`);
 				}
 			} catch (err) {
-				console.error(err.toString());
+				refreshLogger.error(err.toString());
 			}
 		}, refreshIn)
 	};

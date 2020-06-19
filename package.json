@@ -16,14 +16,14 @@
     "test": "gulp test"
   },
   "dependencies": {
-    "@axway/amplify-cli-utils": "^3.0.3",
+    "@axway/amplify-cli-utils": "^3.0.4",
     "gawk": "^4.7.1",
-    "lerna": "^3.22.0",
+    "lerna": "^3.22.1",
     "pretty-ms": "^7.0.0",
     "source-map-support": "^0.5.19"
   },
   "devDependencies": {
-    "appcd-gulp": "^3.0.0"
+    "appcd-gulp": "^3.0.1"
   },
   "homepage": "https://github.com/appcelerator/appc-daemon",
   "bugs": "https://github.com/appcelerator/appcd-plugin-amplify/issues",
