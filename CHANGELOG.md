@@ -1,3 +1,8 @@
+# v1.0.4 (Jun 23, 2020)
+
+ * refactor: Removed token refresh threshold and refresh access token as soon as it expires.
+ * chore: Updated dependencies
+
 # v1.0.3 (Jun 9, 2020)
 
  * chore: Updated dependencies
