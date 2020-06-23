@@ -1,4 +1,4 @@
-# v1.0.
+# v1.0.4
 
  * refactor: Removed token refresh threshold and refresh access token as soon as it expires.
  * chore: Updated dependencies
