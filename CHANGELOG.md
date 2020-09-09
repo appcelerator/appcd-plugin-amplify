@@ -1,3 +1,9 @@
+# v1.1.0
+
+ * feat: Added `/auth/active` endpoint that returns the active authenticated account.
+ * fix: Removed `ipaddress` from build verify payload to comply with GDPR.
+ * chore: Updated dependencies.
+
 # v1.0.4 (Jun 23, 2020)
 
  * refactor: Removed token refresh threshold and refresh access token as soon as it expires.

@@ -182,6 +182,8 @@ export async function activate() {
 	await authService.init();
 	appcd.register('/auth', authService);
 
+	appcd.register('/auth/active', () => authService.data.find(a => a.active) || null);
+
 	appcd.register('/auth/login', async ctx => {
 		const { data } = ctx.request;
 		const opts = {
@@ -381,8 +383,8 @@ export async function activate() {
 		if (!data.fingerprint) {
 			throw new Error('Missing fingerprint');
 		}
-		if (!data.ipAddress) {
-			throw new Error('Missing ip address');
+		if (!data.name) {
+			throw new Error('Missing name');
 		}
 		if (!data.tiapp) {
 			throw new Error('Missing tiapp');
@@ -393,8 +395,8 @@ export async function activate() {
 			appId:       data.appId,
 			deployType:  data.deployType,
 			fingerprint: data.fingerprint,
-			ipAddress:   data.ipAddress,
-			modules:     data.modules, // not required
+			modules:     data.modules,
+			name:        data.name,
 			tiapp:       data.tiapp
 		});
 	});
@@ -408,9 +410,6 @@ export async function activate() {
 		const { data } = ctx.request;
 		const account = await getAccount(ctx.request);
 
-		if (!data.description) {
-			throw new Error('Missing description');
-		}
 		if (!data.fingerprint) {
 			throw new Error('Missing fingerprint');
 		}
@@ -419,7 +418,7 @@ export async function activate() {
 		}
 
 		ctx.response = await sdk.ti.enroll(account, {
-			description: data.description,
+			description: 'Titanium user',
 			fingerprint: data.fingerprint,
 			publicKey:   data.publicKey
 		});
