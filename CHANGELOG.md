@@ -1,7 +1,10 @@
-# v1.1.0
+# v2.0.0
 
+ * BREAKING CHANGE: Dropped support for appcd plugin API version 1.0 and require API version 2.0,
+   which was initially introduced in `appcd@4.0.0`.
  * feat: Added `/auth/active` endpoint that returns the active authenticated account.
  * fix: Removed `ipaddress` from build verify payload to comply with GDPR.
+ * refactor: Broke each set of service endpoints into separate files.
  * chore: Updated dependencies.
 
 # v1.0.4 (Jun 23, 2020)
