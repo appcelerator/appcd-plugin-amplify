@@ -5,6 +5,7 @@
  * feat: Added `/auth/active` endpoint that returns the active authenticated account.
  * fix: Removed `ipaddress` from build verify payload to comply with GDPR.
  * refactor: Broke each set of service endpoints into separate files.
+ * chore: Removed `source-map-support` as `appcd-plugin` already hooks it up.
  * chore: Updated dependencies.
 
 # v1.0.4 (Jun 23, 2020)
