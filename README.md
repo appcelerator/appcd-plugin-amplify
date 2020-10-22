@@ -6,7 +6,7 @@ Report issues to [GitHub issues][2]. Official issue tracker in [JIRA][3].
 
 > This plugin requires appcd plugin API version 2.x which was introduced in appcd@4.0.0.
 
-## Services
+## Service Endpoints
 
  * [Authentication](#Authentication)
    - [`/auth`](#auth)
