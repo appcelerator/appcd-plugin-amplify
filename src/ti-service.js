@@ -34,7 +34,7 @@ export default class TiService extends AmplifyServiceDispatcher {
 				throw new Error('Missing tiapp');
 			}
 
-			ctx.response = await this.sdk.ti.setApp(account, data.tiapp);
+			ctx.response = await this.sdk.ti.setApp(account, data.tiapp, data.params);
 		});
 
 		this.register('/app', async ctx => {
