@@ -4,6 +4,7 @@
    which was initially introduced in `appcd@4.0.0`.
  * feat: Added `/auth/active` endpoint that returns the active authenticated account.
  * fix: Removed `ipaddress` from build verify payload to comply with GDPR.
+ * fix: Added query string params to `/ti/app/set` endpoint.
  * refactor: Broke each set of service endpoints into separate files.
  * chore: Removed `source-map-support` as `appcd-plugin` already hooks it up.
  * chore: Updated dependencies.
