@@ -5,10 +5,12 @@ const amplifyService = new AmplifyService();
 /**
  * Activates and wires up the AMPLIFY service.
  *
+ * @param {Object} cfg - The appcd config.
+ * @param {Object} pluginInfo - The plugin info.
  * @returns {Promise}
  */
-export async function activate() {
-	await amplifyService.activate();
+export async function activate(cfg, pluginInfo) {
+	await amplifyService.activate(pluginInfo);
 	appcd.register('/', amplifyService);
 }
 

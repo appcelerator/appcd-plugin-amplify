@@ -1,8 +1,10 @@
-# v2.0.0
+# v2.0.0 (Dec 2, 2020)
 
  * BREAKING CHANGE: Dropped support for appcd plugin API version 1.0 and require API version 2.0,
    which was initially introduced in `appcd@4.0.0`.
  * feat: Added `/auth/active` endpoint that returns the active authenticated account.
+ * feat: Gracefully stop if auto-started and there are no accounts to watch.
+ * feat: Added support for the new `dataDir` plugin info used to store the auth tokens.
  * fix: Removed `ipaddress` from build verify payload to comply with GDPR.
  * fix: Added query string params to `/ti/app/set` endpoint.
  * refactor: Broke each set of service endpoints into separate files.

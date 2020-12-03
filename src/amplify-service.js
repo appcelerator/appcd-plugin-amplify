@@ -32,10 +32,13 @@ export default class AmplifyService extends Dispatcher {
 	 * Initializes the AMPLIFY CLI config watcher, initializes the AMPLIFY SDK, and wires up the
 	 * various services.
 	 *
+	 * @param {Object} pluginInfo - The plugin info.
 	 * @returns {Promise}
 	 * @access public
 	 */
-	async activate() {
+	async activate(pluginInfo) {
+		this.dataDir = pluginInfo.dataDir;
+
 		/**
 		 * A map of service endpoints to service dispatcher instances.
 		 * @type {Object}
@@ -80,7 +83,7 @@ export default class AmplifyService extends Dispatcher {
 
 		for (const [ endpoint, service ] of Object.entries(this.services)) {
 			this.register(endpoint, service);
-			await service.activate(sdk, this.amplifyConfig);
+			await service.activate(sdk, this.amplifyConfig, pluginInfo);
 		}
 	}
 
@@ -100,8 +103,10 @@ export default class AmplifyService extends Dispatcher {
 			cert:      network?.certFile,
 			key:       network?.keyFile,
 			proxy:     network?.proxy,
-			strictSSL: network?.strictSSL
+			strictSSL: network?.strictSSL,
 		}, this.amplifyConfig);
+
+		params.homeDir = this.dataDir;
 
 		// hash the params to see if we even need to create a new AMPLIFY SDK instance
 		const str = JSON.stringify(params);
