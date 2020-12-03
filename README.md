@@ -6,6 +6,15 @@ Report issues to [GitHub issues][2]. Official issue tracker in [JIRA][3].
 
 > This plugin requires appcd plugin API version 2.x which was introduced in appcd@4.0.0.
 
+When starting the Appc Daemon, this plugin will automatically be started. If there are no
+authenticated accounts found, the plugin will gracefully stop until an explicit request has been
+dispatched.
+
+This plugin stores all its data, such as the token store file and `keytar` library, in a special
+versioned plugin-specific data directory. Authenticated accounts are only visible to this version
+of the AMPLIFY plugin and are not visible to any other AMPLIFY plugin version or the Axway CLI.
+Likewise, this plugin does not access accounts authenticated by the Axway CLI.
+
 ## Service Endpoints
 
  * [Authentication](#Authentication)

@@ -4,8 +4,9 @@ import { DataServiceDispatcher } from 'appcd-dispatcher';
 
 const { highlight } = appcd.logger.styles;
 
-const refreshLogger = appcd.logger('refresh');
-const statusLogger = appcd.logger('status');
+const { log } = appcd.logger('auth-service');
+const refreshLogger = appcd.logger('auth-service:refresh');
+const statusLogger = appcd.logger('auth-service:status');
 
 /**
  * Defines the service endpoints for the AMPLIFY Platform authentication related functions.
@@ -28,14 +29,21 @@ export default class AuthService extends AmplifyServiceDispatcher {
 	 *
 	 * @param {AmplifySDK} sdk - The AMPLIFY SDK instance.
 	 * @param {Config} amplifyConfig - The AMPLIFY CLI config object.
+	 * @param {Object} pluginInfo - The plugin info.
 	 * @returns {Promise}
 	 * @access public
 	 */
-	async activate(sdk, amplifyConfig) {
+	async activate(sdk, amplifyConfig, pluginInfo) {
 		await super.activate(sdk, amplifyConfig);
 
 		// initialize the list of accounts
-		const authAccountService = new DataServiceDispatcher(this.processAccounts(await this.sdk.auth.list()), '');
+		const accounts = await this.sdk.auth.list();
+		if (!accounts.length && pluginInfo.autoStarted) {
+			log('The AMPLIFY plugin was auto-started, but there are no accounts to keep refreshed');
+			log('Exiting to free up resources');
+			process.exit(0);
+		}
+		const authAccountService = new DataServiceDispatcher(this.processAccounts(accounts), '');
 
 		// sadly, we can't rely on watching the token store file to refresh the accounts, so after
 		// a successful login, logout, or switch, we manually refresh the list of accounts
