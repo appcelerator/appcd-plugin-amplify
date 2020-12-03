@@ -165,9 +165,11 @@ class AuthAccountService extends ServiceDispatcher {
 /**
  * Wires up the routes and initialize the AMPLIFY CLI config, AMPLIFY SDK, and refresh timers.
  *
+ * @param {Object} cfg - The appcd config.
+ * @param {Object} pluginInfo - The plugin info.
  * @returns {Promise}
  */
-export async function activate() {
+export async function activate(cfg, pluginInfo) {
 	// watch the AMPLIFY CLI config file for changes
 	appcd.fs.watch({
 		debounce: true,
@@ -176,7 +178,7 @@ export async function activate() {
 		type: 'amplify-config'
 	});
 
-	await init();
+	await init(pluginInfo);
 
 	const authService = new AuthAccountService();
 	await authService.init();
@@ -490,13 +492,23 @@ async function getAccount(req) {
  * Loads the AMPLIFY CLI and AMPLIFY SDK during plugin activation and when the AMPLIFY CLI config
  * changes.
  *
+ * @param {Object} pluginInfo - The plugin info.
  * @returns {Promise}
  */
-async function init() {
+async function init(pluginInfo) {
 	clearRefreshTimers();
 	amplifyConfig = loadConfig({ configFile });
 	sdk = new AmplifySDK(buildParams({}, amplifyConfig));
-	(await sdk.auth.list()).forEach(refreshToken);
+
+	const accounts = await sdk.auth.list();
+
+	if (!accounts.length && pluginInfo.autoStarted) {
+		console.log('The AMPLIFY plugin was auto-started, but there are no accounts to keep refreshed');
+		console.log('Exiting to free up resources');
+		process.exit(0);
+	}
+
+	accounts.forEach(refreshToken);
 }
 
 /**

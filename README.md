@@ -4,6 +4,10 @@ AMPLIFY platform service for the Appc Daemon.
 
 Report issues to [GitHub issues][2]. Official issue tracker in [JIRA][3].
 
+When starting the Appc Daemon, this plugin will automatically be started. If there are no
+authenticated accounts found, the plugin will gracefully stop until an explicit request has been
+dispatched.
+
 ## Services
 
  * [Authentication](#Authentication)
