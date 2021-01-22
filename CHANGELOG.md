@@ -1,3 +1,7 @@
+# v2.0.1 (Jan 22, 2021)
+
+ * chore: Updated dependencies.
+
 # v2.0.0 (Dec 2, 2020)
 
  * BREAKING CHANGE: Dropped support for appcd plugin API version 1.0 and require API version 2.0,
